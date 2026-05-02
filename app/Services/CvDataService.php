@@ -7,30 +7,32 @@ use Illuminate\Support\Facades\Auth;
 
 class CvDataService
 {
-    protected $aiService;
-
-    public function __construct(CvAiService $aiService)
-    {
-        $this->aiService = $aiService;
-    }
+    public function __construct(protected CvAiService $aiService) {}
 
     /**
-     * حفظ الخبرة الوظيفية مع النص المحسن
+     * Store a work experience entry with AI-optimized description.
      */
-    public function storeExperience($data)
+    public function storeExperience(array $data): Experience
     {
-        // استدعاء خدمة الذكاء الاصطناعي لتحسين الوصف
-        $optimizedText = $this->aiService->optimizeDescription($data['raw_description']);
+        $aiResult = $this->aiService->optimizeExperience(
+            rawText:    $data['raw_description'],
+            jobTitle:   $data['job_title'],
+            targetRole: $data['target_role'] ?? '',
+        );
 
-        // الحفظ في قاعدة البيانات باستخدام Model Experience
+        // Join bullet points into a single stored string
+        $optimizedText = $aiResult['success']
+            ? implode("\n", $aiResult['optimized_bullets'])
+            : $data['raw_description'];
+
         return Experience::create([
             'user_id'                  => Auth::id(),
-            'job_title'                => $data['job_title'] ?? 'N/A',
-            'company_name'             => $data['company_name'] ?? 'N/A',
-            'start_date'               => $data['start_date'] ?? null,
+            'job_title'                => $data['job_title'],
+            'company_name'             => $data['company_name'],
+            'start_date'               => $data['start_date'],
             'end_date'                 => $data['end_date'] ?? null,
-            'raw_description'          => $data['raw_description'] ?? '',
-            'ai_optimized_description' => $optimizedText, // هنا سيظهر النص المحسن فعلياً
+            'raw_description'          => $data['raw_description'],
+            'ai_optimized_description' => $optimizedText,
         ]);
     }
 }
